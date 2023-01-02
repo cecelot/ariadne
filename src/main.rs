@@ -3,12 +3,14 @@ use std::ffi::OsString;
 use std::{
     error::Error,
     fs,
-    io::{stdin, stdout, Write},
+    io::Write,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
 
 use clap::{Parser, Subcommand};
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -60,41 +62,58 @@ fn string_to_args(string: &str) -> Vec<OsString> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let home = std::env::var("HOME").unwrap();
+    let path = format!("{}/.ariadne_history", home);
+
     let mut maze: Arc<RwLock<Maze>> = Arc::new(RwLock::new(Maze::new(10, 10)));
+    let mut rl = Editor::<()>::new()?;
+    if rl.load_history(&path).is_err() {
+        fs::File::create(&path)?;
+    }
 
     loop {
-        print!("> ");
-        let _ = stdout().flush()?;
-        let mut cmd = String::new();
-        stdin().read_line(&mut cmd).unwrap();
-        cmd = cmd.replace("> ", "");
-
-        match Cli::try_parse_from(string_to_args(&cmd)) {
-            Ok(cli) => match cli.command {
-                Commands::Quit | Commands::Exit => commands::quit::command()?,
-                Commands::Show => println!("{}", maze.read().unwrap().string()),
-                Commands::Load { file_path } => {
-                    let path = fs::canonicalize(file_path)?;
-                    maze = Arc::new(RwLock::new(Maze::from(path)));
+        let readline = rl.readline("> ");
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str());
+                match Cli::try_parse_from(string_to_args(&line)) {
+                    Ok(cli) => match cli.command {
+                        Commands::Quit | Commands::Exit => commands::quit::command(&home, &mut rl)?,
+                        Commands::Show => println!("{}", maze.read().unwrap().string()),
+                        Commands::Load { file_path } => {
+                            let path = fs::canonicalize(file_path)?;
+                            maze = Arc::new(RwLock::new(Maze::from(path)));
+                        }
+                        Commands::Export { file_path } => {
+                            let mut path = std::env::current_dir()?;
+                            path.push(file_path);
+                            let mut file = fs::File::create(path)?;
+                            let s = serde_json::to_string_pretty(&maze.read().unwrap().clone())?;
+                            write!(file, "{}", s)?;
+                        }
+                        Commands::Clear => commands::clear::command()?,
+                        Commands::Solve { visualize } => {
+                            commands::solve::command(Arc::clone(&maze), visualize)?
+                        }
+                        Commands::Create {
+                            width,
+                            height,
+                            visualize,
+                        } => maze = commands::create::command(visualize, width, height)?,
+                    },
+                    Err(e) => println!("{}", e),
                 }
-                Commands::Export { file_path } => {
-                    let mut path = std::env::current_dir()?;
-                    path.push(file_path);
-                    let mut file = fs::File::create(path)?;
-                    let s = serde_json::to_string_pretty(&maze.read().unwrap().clone())?;
-                    write!(file, "{}", s)?;
-                }
-                Commands::Clear => commands::clear::command()?,
-                Commands::Solve { visualize } => {
-                    commands::solve::command(Arc::clone(&maze), visualize)?
-                }
-                Commands::Create {
-                    width,
-                    height,
-                    visualize,
-                } => maze = commands::create::command(visualize, width, height)?,
-            },
-            Err(e) => println!("{}", e),
+            }
+            Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {
+                break;
+            }
+            Err(err) => {
+                println!("Unexpected error: {:?}", err);
+                break;
+            }
         }
     }
+    rl.save_history(&path)?;
+
+    Ok(())
 }
