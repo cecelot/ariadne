@@ -1,6 +1,6 @@
 # Mazes
 
-A simple CLI interface for visualizing mazes. This was a port of a school project originally written in C++ to learn a little more about Rust.
+A simple CLI interface for visualizing mazes. This is a port of a school project originally written in C++ to learn a little more about Rust.
 
 # Interface
 
