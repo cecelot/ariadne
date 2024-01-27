@@ -1,4 +1,4 @@
-use crate::{lib::prelude::*, Coordinates};
+use ariadne::{coordinate::Coordinates, prelude::*};
 use std::{
     collections::HashSet,
     error::Error,
@@ -23,8 +23,8 @@ pub fn command(maze: Arc<RwLock<Maze>>, visualize: Option<bool>) -> Result<(), B
 
     let send = Arc::clone(&maze);
     let handle = thread::spawn(move || {
-        let mut solver = BFS::new(&send);
-        return solver.solve(visualize, tx);
+        let mut solver = Bfs::new(&send);
+        solver.solve(visualize, tx)
     });
 
     if visualize {
@@ -46,14 +46,8 @@ pub fn command(maze: Arc<RwLock<Maze>>, visualize: Option<bool>) -> Result<(), B
             thread::sleep(Duration::from_millis(50));
         }
 
-        'solve_wait: loop {
-            match read()? {
-                _ => {
-                    execute!(stdout(), LeaveAlternateScreen, Show)?;
-                    break 'solve_wait;
-                }
-            }
-        }
+        let _ = read()?;
+        execute!(stdout(), LeaveAlternateScreen, Show)?;
     } else {
         for _ in &rx {}
     }

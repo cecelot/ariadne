@@ -1,4 +1,4 @@
-use self::lib::{coordinate::Coordinates, prelude::*};
+use ariadne::prelude::*;
 use std::ffi::OsString;
 use std::{
     error::Error,
@@ -49,7 +49,6 @@ enum Commands {
 }
 
 mod commands;
-mod lib;
 
 fn string_to_args(string: &str) -> Vec<OsString> {
     let mut args = vec![OsString::from("ariadne")];

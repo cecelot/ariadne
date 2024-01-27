@@ -1,4 +1,4 @@
-use crate::lib::prelude::*;
+use ariadne::prelude::*;
 use std::{
     error::Error,
     io::stdout,
@@ -25,9 +25,9 @@ pub fn command(
     let visualize = visualize.unwrap_or(false);
 
     let handle = thread::spawn(move || {
-        return Arc::new(RwLock::new(
+        Arc::new(RwLock::new(
             DFSOptions::new(width, height, visualize, tx).create(),
-        ));
+        ))
     });
 
     if visualize {
@@ -47,20 +47,14 @@ pub fn command(
             thread::sleep(Duration::from_millis(50));
         }
 
-        'create_wait: loop {
-            match read()? {
-                _ => {
-                    execute!(stdout(), LeaveAlternateScreen, Show)?;
-                    break 'create_wait;
-                }
-            }
-        }
+        let _ = read()?;
+        execute!(stdout(), LeaveAlternateScreen, Show)?;
     } else {
         for _ in &rx {}
     }
-    
+
     let maze = handle.join().unwrap();
-    
+
     println!(
         "{} Created maze with size {}x{}",
         "✔".green().bold(),

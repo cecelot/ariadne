@@ -100,11 +100,7 @@ impl Maze {
             for node_row in 0..2 {
                 for col in 0..self.width {
                     let cell = self.get((row, col).into());
-                    let mark = if visited.contains(&(row, col).into()) {
-                        true
-                    } else {
-                        false
-                    };
+                    let mark = visited.contains(&(row, col).into());
                     ret += &cell.unwrap().row_string(node_row, Some(mark));
                     if col == self.width - 1 {
                         ret += "\n";
@@ -142,10 +138,7 @@ impl<P: AsRef<Path>> From<P> for Maze {
     fn from(path: P) -> Maze {
         let file = File::open(path).unwrap();
         let reader = BufReader::new(file);
-
-        let u = serde_json::from_reader(reader).expect("Failed to parse JSON");
-
-        u
+        serde_json::from_reader(reader).expect("Failed to parse JSON")
     }
 }
 
@@ -188,7 +181,7 @@ impl DFSOptions {
                 .has_unvisited_neighbor(&maze, &visited);
 
             if has_unvisited_neighbor {
-                stack.push(top.into());
+                stack.push(top);
                 let adjust: (isize, isize);
                 let direction: Direction;
                 {
@@ -216,12 +209,12 @@ pub trait Solver {
     fn solve(&mut self, visualize: bool, tx: Sender<HashSet<Coordinates>>) -> bool;
 }
 
-pub struct BFS<'a> {
+pub struct Bfs<'a> {
     maze: &'a Arc<RwLock<Maze>>,
     relevant: HashSet<Coordinates>,
 }
 
-impl<'a> BFS<'a> {
+impl<'a> Bfs<'a> {
     pub fn new(maze: &'a Arc<RwLock<Maze>>) -> Self {
         Self {
             maze,
@@ -230,7 +223,7 @@ impl<'a> BFS<'a> {
     }
 }
 
-impl<'a> Solver for BFS<'a> {
+impl<'a> Solver for Bfs<'a> {
     fn solve(&mut self, visualize: bool, tx: Sender<HashSet<Coordinates>>) -> bool {
         let root: Coordinates = (0, 0).into();
         let mut end: Coordinates = self.maze.read().unwrap().dimensions().into();
