@@ -61,15 +61,12 @@ fn string_to_args(string: &str) -> Vec<OsString> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let home = std::env::var("HOME").unwrap();
-    let path = format!("{}/.ariadne_history", home);
-
+    let path = ariadne::history();
     let mut maze: Arc<RwLock<Maze>> = Arc::new(RwLock::new(Maze::new(10, 10)));
     let mut rl = Editor::<()>::new()?;
     if rl.load_history(&path).is_err() {
         fs::File::create(&path)?;
     }
-
     loop {
         let readline = rl.readline("> ");
         match readline {
@@ -77,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(line.as_str());
                 match Cli::try_parse_from(string_to_args(&line)) {
                     Ok(cli) => match cli.command {
-                        Commands::Quit | Commands::Exit => commands::quit::command(&home, &mut rl)?,
+                        Commands::Quit | Commands::Exit => commands::quit::command(&mut rl)?,
                         Commands::Show => println!("{}", maze.read().unwrap().string()),
                         Commands::Load { file_path } => {
                             let path = fs::canonicalize(file_path)?;
